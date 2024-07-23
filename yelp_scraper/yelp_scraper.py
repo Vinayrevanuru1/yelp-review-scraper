@@ -26,6 +26,7 @@ def scrape_reviews(base_url, restaurant_name):
     page_number = 0
     step = 10  # Number of items per page
     all_content_html = []
+    max_retries = 3
 
     # Fetch the first page to get the total number of pages
     initial_url = f"{base_url}{page_number * step}"
@@ -41,20 +42,29 @@ def scrape_reviews(base_url, restaurant_name):
     while page_number < total_pages:
         url = f"{base_url}{page_number * step}"
         print(f"Fetching URL: {url}")
-        html = get_html_content(url)
 
-        if html:
-            content = extract_content(html)
-            if content:
-                all_content_html.append(str(content))
-                print(f"Page {page_number + 1}: Content extracted successfully.")
-                page_number += 1  # Increment to fetch the next page
-                time.sleep(random.randint(5, 7))
+        retry_count = 0
+        while retry_count < max_retries:
+            html = get_html_content(url)
+            if html:
+                content = extract_content(html)
+                if content:
+                    all_content_html.append(str(content))
+                    print(f"Page {page_number + 1}: Content extracted successfully.")
+                    page_number += 1  # Increment to fetch the next page
+                    time.sleep(random.randint(5, 7))  # Add a random delay between requests
+                    break
+                else:
+                    print(f"Page {page_number + 1}: No 'reviews' content found. Retrying...")
             else:
-                print("No 'reviews' content found. Ending loop.")
-                break
-        else:
-            break
+                print(f"Page {page_number + 1}: Failed to retrieve content. Retrying...")
+
+            retry_count += 1
+            if retry_count < max_retries:
+                time.sleep(30)  # Wait for 30 seconds before retrying
+
+        if retry_count == max_retries:
+            assert False, f"Page {page_number + 1}: Failed to scrape after {max_retries} attempts. Not all reviews could be scraped."
 
     # Save all collected content to a file
     with open(f'{restaurant_name}_yelp_reviews.html', 'w') as file:
